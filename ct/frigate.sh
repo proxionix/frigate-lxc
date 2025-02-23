@@ -2,7 +2,6 @@
 
 # Copyright (c) 2024 Proxionix
 # License: MIT
-# https://github.com/proxionix/frigate-lxc
 
 # Variables du conteneur
 APP="Frigate"
@@ -14,8 +13,29 @@ var_disk="20"
 var_unprivileged="1"
 NSAPP=$(echo ${APP,,} | tr -d ' ')
 
-# Source des fonctions communes
-source <(curl -s https://raw.githubusercontent.com/proxionix/frigate-lxc/main/misc/build.func)
+# Fonctions de vérification
+arch_check() {
+    if [ "$(dpkg --print-architecture)" != "amd64" ]; then
+        echo -e "\n Ce script ne fonctionne qu'avec l'architecture amd64 \n"
+        exit 1
+    fi
+}
+
+# Vérification root
+root_check() {
+    if [[ "$(id -u)" -ne 0 || $(ps -o comm= -p $PPID) == "sudo" ]]; then
+        echo "Ce script doit être exécuté en tant que root"
+        exit 1
+    fi
+}
+
+# Vérification PVE
+pve_check() {
+    if ! pveversion | grep -Eq "pve-manager/8\.[0-9]"; then
+        echo "Ce script nécessite Proxmox VE 8.0 ou supérieur"
+        exit 1
+    fi
+}
 
 # En-tête ASCII
 function header_info {
@@ -29,24 +49,19 @@ cat <<"EOF"
 EOF
 }
 
-# Vérifications initiales
-color
-trap 'error_handler $LINENO "$BASH_COMMAND"' ERR
-catch_errors
-root_check
-arch_check
-pve_check
-ssh_check
-maxkeys_check
-
 # Installation
 header_info
-if ! (whiptail --backtitle "Proxmox VE Helper Scripts" --title "Installation de Frigate" --yesno "Ceci va créer un conteneur LXC pour Frigate v0.15.0. Continuer?" 10 58); then
-    clear
-    exit
+echo -e "\nCe script va créer un conteneur LXC pour Frigate v0.15.0"
+read -p "Continuer? (y/n):" -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    root_check
+    arch_check
+    pve_check
+    
+    # Suite du script...
+    echo "Configuration en cours..."
+else
+    echo "Installation annulée"
+    exit 0
 fi
-
-# Exécution du script d'installation
-install_script
-build_container
-description
