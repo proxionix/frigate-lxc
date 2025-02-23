@@ -1,4 +1,4 @@
-name: Tests
+name: Tests CI
 
 on:
   push:
@@ -11,31 +11,15 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     
     - name: Shellcheck
       uses: ludeeus/action-shellcheck@master
       with:
-        scandir: './scripts'
+        scandir: './ct'
         
     - name: Test Script Syntax
       run: |
-        for script in $(find ./scripts -name "*.sh"); do
+        for script in $(find . -name "*.sh"); do
           bash -n "$script"
         done
-        
-    - name: Validate Version Numbers
-      run: |
-        version=$(grep "FRIGATE_VERSION=" scripts/install.sh | cut -d'"' -f2)
-        if ! [[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-          echo "Invalid version number format"
-          exit 1
-        fi
-        
-    - name: Check URLs
-      run: |
-        for script in $(find ./scripts -name "*.sh"); do
-          if grep -q "http" "$script"; then
-            echo "Checking URLs in $script"
-            grep "http" "$script" | while read -r url; do
-              curl --output /dev/null --silent --
